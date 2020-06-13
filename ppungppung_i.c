@@ -83,8 +83,7 @@ void clcd_input(char clcd_text[]){
 	if (clcd_d < 0) {
 		printf("디바이스 드라이버가 없습니다.\n");
 	}
-//	sprintf(led_count_str, "%d", led_count);
-//	strcat(clcd_text, led_count_str);
+
 	write(clcd_d , clcd_text , strlen(clcd_text)); // 1.디스크립터  2.문자들 3.문자들의 크기
 	close(clcd_d);
 }
@@ -95,7 +94,7 @@ void led_control(){
 
 	unsigned char data;
 	
-	char led_array[] = { 0xFF,0xFE,0xFC,0xF8,0xF0,0xE0,0xC0,0x80,0x00 };
+	char led_array[] = { 0xFE,0xFC,0xF8,0xF0,0xE0,0xC0,0x80,0x00 };
 	
 	//1. 해당 드라이버 경로
 	//2. O_RDWR
@@ -107,7 +106,7 @@ void led_control(){
 		exit(0);
 	}
 
-	led_count++;
+	led_count %= 8;
 	data = led_array[led_count]; // binary controlled
 		
 	//1. 파일의 디스크립트
@@ -115,22 +114,32 @@ void led_control(){
 	//3. 크기를 넣어준다.
 
 	write(dev , &data , sizeof(unsigned char));
-	usleep(100000);
+	usleep(500000);
 	
-
 	close(dev);
+	
+	led_count++;
 }
 
 int main()
 {
 	while(1){
+		clcd_input("press any key to start game");
 		if (tact_switch()){
-			clcd_input("Bet amount : ");
-			if (tact_switch() == 4){
-				led_control();
-        		}
+			break;
 		}
-	}	
+	}
+	
+	while(1){
+		clcd_input("Bet amount : ");
+		while(tact_switch() == 4){
+			led_control();
+			printf("bet amount : %d\n",led_count);
+			if (tact_switch() == 5){
+				break;
+			}
+        	}
+	}
 		
 	return 0;
 }
