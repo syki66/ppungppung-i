@@ -9,6 +9,7 @@
 #include <asm/ioctls.h>
 #include <stdbool.h>
 #include<string.h>
+#include <time.h>
 #define clcd "/dev/clcd"
 
 #include<unistd.h>
@@ -36,6 +37,9 @@ unsigned char row[3][8] ={
 
 
 int led_count = 0;
+
+int user_input = 0;
+
 
 
 
@@ -163,12 +167,12 @@ void rockScissorsPaper(int com_rsp, int user_rsp) {
 		clcd_input("Draw, Do it again");
 	}
 	
-	else if ( ( (com_rsp == 0) && (user_rsp == 2) ) ||  ( (com_rsp == 1) && (user_rsp == 0) ) || ( (com_rsp == 2) && (user_rsp == 1) ) ) {
+	else if ( ( (com_rsp == 1) && (user_rsp == 3) ) ||  ( (com_rsp == 2) && (user_rsp == 1) ) || ( (com_rsp == 3) && (user_rsp == 2) ) ) {
 		clcd_input("You Win!!");
 		isWin = true;
 	}
-	else if ( ( (com_rsp == 2) && (user_rsp == 0) ) ||  ( (com_rsp == 0) && (user_rsp == 1) ) || ( (com_rsp == 1) && (user_rsp == 2) ) ) {
-		clcd_input("You Lose~~");
+	else if ( ( (com_rsp == 3) && (user_rsp == 1) ) ||  ( (com_rsp == 1) && (user_rsp == 2) ) || ( (com_rsp == 2) && (user_rsp == 3) ) ) {
+		clcd_input("You Lose^^");
 		isWin = false;
 	}
 	else {
@@ -201,17 +205,28 @@ int main() {
       	}
 	
 	
-	while(tact_switch() != 1){
+	while(1){
 		clcd_input("Rock Scissors Paper!!");	
 		
-		int random = rand() % 3;
-		
-		DOT_control(random, 0.3);
-		printf("%d\n", random);
-		
-		
+		if (tact_switch()) {
+			user_input = tact_switch();
+			break;
+		}
 	}
-
+	
+	srand(time(NULL));
+	int random = rand() % 3 + 1;	
+	
+	
+	rockScissorsPaper(random, user_input);
+	
+	DOT_control(random - 1, 5);
+	printf("%d\n", random);
+	
+	printf("%d\n", user_input);
+		
+		
+		
 		
 	return 0;
 }
