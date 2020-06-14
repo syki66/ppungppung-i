@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <asm/ioctls.h>
-
+#include <stdbool.h>
 #include<string.h>
 #define clcd "/dev/clcd"
 
@@ -29,9 +29,9 @@ static int  tactswFd = (-1);
 
 
 unsigned char row[3][8] ={
-	{ 0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00 }, // muk
-	{ 0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x00 }, // zzi
-	{ 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03 }  // bba
+	{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // muk
+	{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // zzi
+	{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // bba
 };
 
 
@@ -157,6 +157,26 @@ unsigned int DOT_control(int val, int time_sleep){
 
 
 
+void rockScissorsPaper(int com_rsp, int user_rsp) {
+	bool isWin;
+	if (com_rsp == user_rsp) {
+		clcd_input("Draw, Do it again");
+	}
+	
+	else if ( ( (com_rsp == 0) && (user_rsp == 2) ) ||  ( (com_rsp == 1) && (user_rsp == 0) ) || ( (com_rsp == 2) && (user_rsp == 1) ) ) {
+		clcd_input("You Win!!");
+		isWin = true;
+	}
+	else if ( ( (com_rsp == 2) && (user_rsp == 0) ) ||  ( (com_rsp == 0) && (user_rsp == 1) ) || ( (com_rsp == 1) && (user_rsp == 2) ) ) {
+		clcd_input("You Lose~~");
+		isWin = false;
+	}
+	else {
+		clcd_input("use key 1 or 2 or 3");
+	}
+	//return isWin;
+}
+
 
 int main() {
 	while(1){
@@ -167,12 +187,17 @@ int main() {
 	}
 	
 	while(1){
-		clcd_input("Set bet amount");
-		while(tact_switch() == 4){
-			led_control();
-			printf("bet amount : %d\n",led_count);
-			if (tact_switch() == 5){
+		clcd_input("Betting Money");
+		while(1){
+			if (tact_switch() == 4){
+				led_control();
+				printf("betting money : %d\n",led_count);
+			}
+			else if (tact_switch() == 5){
 				break;
+			}
+			else {
+				clcd_input("use key 4 or 5");
 			}
         	}
         	break;
@@ -182,7 +207,13 @@ int main() {
 		clcd_input("Rock Scissors Paper!!");
 
 		int random = rand() % 3;
-		DOT_control(random, 1);
+		DOT_control(random, 0.01);
+		printf("%d\n", random);
+		
+		//if (tact_switch()){
+			//rockScissorsPaper(random, tact_switch());
+		//	printf("%d\n", tact_switch());
+		//}
 	}
 		
 	return 0;
