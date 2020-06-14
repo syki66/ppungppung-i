@@ -66,26 +66,26 @@ unsigned char tactsw_get(int tmo)
 
 
 int tact_switch(){
-    unsigned char c;
-    int selected_tact = 66; // true value
-    if((tactswFd = open( tactswDev, O_RDONLY )) < 0){         // KEY open
+	unsigned char c;
+	int selected_tact = 0; // false value
+
+	if((tactswFd = open( tactswDev, O_RDONLY )) < 0){         // KEY open
 		perror("open faile /dev/key");
 		exit(-1);
 	}
 
 	while(1){
 		c = tactsw_get(10);
-        switch (c) {
-			case 1:  selected_tact = 1 ; break;
-			case 2:  selected_tact = 2 ; break;
-			case 3:  selected_tact = 3 ; break;
-			case 4:  selected_tact = 4 ; break;
-			case 5:  selected_tact = 5 ; break;
-
-			default: printf("press other key\n"); break;
-        }
-	return selected_tact;
-	}
+		switch (c) {
+				case 1:  selected_tact = 1 ; break;
+				case 2:  selected_tact = 2 ; break;
+				case 3:  selected_tact = 3 ; break;
+				case 4:  selected_tact = 4 ; break;
+				case 5:  selected_tact = 5 ; break;
+				default: printf("press other key\n", c); break;
+		}
+		return selected_tact;
+		}
 	
 }
 
@@ -186,35 +186,32 @@ int main() {
 		}
 	}
 	
+	clcd_input("Betting Money");
 	while(1){
-		clcd_input("Betting Money");
-		while(1){
-			if (tact_switch() == 4){
-				led_control();
-				printf("betting money : %d\n",led_count);
-			}
-			else if (tact_switch() == 5){
-				break;
-			}
-			else {
-				clcd_input("use key 4 or 5");
-			}
-        	}
-        	break;
-	}
+		if (tact_switch() == 4){
+			led_control();
+			printf("betting money : %d\n",led_count);
+		}
+		else if (tact_switch() == 5){
+			break;
+		}
+		else {
+			clcd_input("use key 4 or 5");
+		}
+      	}
 	
-	while(1){
-		clcd_input("Rock Scissors Paper!!");
-
+	
+	while(tact_switch() != 1){
+		clcd_input("Rock Scissors Paper!!");	
+		
 		int random = rand() % 3;
-		DOT_control(random, 0.01);
+		
+		DOT_control(random, 0.3);
 		printf("%d\n", random);
 		
-		//if (tact_switch()){
-			//rockScissorsPaper(random, tact_switch());
-		//	printf("%d\n", tact_switch());
-		//}
+		
 	}
+
 		
 	return 0;
 }
