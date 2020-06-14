@@ -139,8 +139,7 @@ void led_control(){
 
 void DOT_control(int val, int time_sleep){
 	int dot_d;
-	unsigned char c[4][8] ={
-		{ 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 },
+	unsigned char c[3][8] ={
 		{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // muk
 		{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // zzi
 		{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // bba
@@ -154,8 +153,9 @@ void DOT_control(int val, int time_sleep){
 	}
 
 	write(dot_d , &c[val], sizeof(c));
-	close(dot_d); // important!!!!!!
+	
 	sleep(time_sleep);
+	close(dot_d); // important!!!!!!
 }
 
 
@@ -182,53 +182,65 @@ int rockScissorsPaper(int com_rsp, int user_rsp) {
 	return state;
 }
 
+void intro(){
+	DOT_control(0, 1); // under1 impossible
+	DOT_control(1, 1);
+	DOT_control(2, 1);
+}
 
 int main() {
-	DOT_control(0, 2);
 	while(1){
 
 	
-	while(1){
-		clcd_input("press any key to start game");
-		if (tact_switch()){
-			break;
+		while(1){
+			clcd_input("press any key to start game");
+			
+			intro();
+			
+			if (tact_switch()){
+				break;
+			}
 		}
-	}
-	
-	clcd_input("Betting Money");
-	while(1){
-		if (tact_switch() == 4){
-			led_control();
-			printf("betting money : %d\n",led_count);
-		}
-		else if (tact_switch() == 5){
-			break;
-		}
-		else {
-			clcd_input("use right key, 4:money, 5:confirm");
-		}
-      	}
-	
-	
-	
-	int rsp_state = 0;	
-	while(1){
-		clcd_input("Rock Scissors Paper!!");	
 		
-		if (tact_switch() == 1 || tact_switch() == 2 || tact_switch() == 3) {
-			user_input = tact_switch();
-			break;
+		clcd_input("Betting Money");
+		while(1){
+			if (tact_switch() == 4){
+				led_control();
+				printf("betting money : %d\n",led_count);
+			}
+			else if (tact_switch() == 5){
+				break;
+			}
+			else {
+				clcd_input("use right key, 4:money, 5:confirm");
+			}
+	      	}
+		
+		
+		
+		int rsp_state = 0;	
+		while(rsp_state == 0){
+			clcd_input("Rock Scissors Paper!!");
+			
+			srand(time(NULL));
+			int random = rand() % 3 + 1;	
+			
+			if (tact_switch() == 1 || tact_switch() == 2 || tact_switch() == 3) {
+				user_input = tact_switch();
+				rsp_state = rockScissorsPaper(random, user_input);
+				printf("%d\n", rsp_state);
+				DOT_control(random - 1, 3);
+			}
+			else {
+				clcd_input("use right key, 1:muk, 2:zzi, 3:ppa");
+			}
+			
+			
 		}
-		else {
-			clcd_input("use right key, 1:muk, 2:zzi, 3:ppa");
-		}
-	}
 
-	srand(time(NULL));
-	int random = rand() % 3 + 1;	
-	
-	rsp_state = rockScissorsPaper(random, user_input);
-	DOT_control(random - 1, 2);
+			
+		
+	led_count = 0;
 		
 	}
 		
