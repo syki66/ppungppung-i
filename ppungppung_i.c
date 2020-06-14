@@ -20,7 +20,7 @@
 
 #include    <time.h>
 
-#define dot_dev 	"/dev/dot"
+#define dot "/dev/dot"
 
 
 
@@ -29,11 +29,7 @@ static char tactswDev[] = "/dev/tactsw";
 static int  tactswFd = (-1);
 
 
-unsigned char row[3][8] ={
-	{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // muk
-	{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // zzi
-	{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // bba
-};
+
 
 
 int led_count = 0;
@@ -141,48 +137,57 @@ void led_control(){
 
 
 
-unsigned int DOT_control(int val, int time_sleep){
+void DOT_control(int val, int time_sleep){
+	int dot_d;
+	unsigned char c[4][8] ={
+		{ 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 },
+		{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // muk
+		{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // zzi
+		{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // bba
+	};
 
-	unsigned char dot_data[8];
-	int dot_fd = 0;
 
-	memcpy(dot_data, row[val], 8);
-
-	dot_fd = open(dot_dev, O_RDWR);
-	if(dot_fd <0){
-		printf("Can't Open Device\n");
+	dot_d = open(dot , O_RDWR);
+	if(dot_d<0)
+	{
+		printf("Error\n");
 	}
 
-	write(dot_fd, &dot_data, sizeof(dot_data));
-	
+	write(dot_d , &c[val], sizeof(c));
+	close(dot_d); // important!!!!!!
 	sleep(time_sleep);
-	return 0;
 }
 
 
 
-void rockScissorsPaper(int com_rsp, int user_rsp) {
-	bool isWin;
+int rockScissorsPaper(int com_rsp, int user_rsp) {
+	int state = 6; // trash value
+	
 	if (com_rsp == user_rsp) {
 		clcd_input("Draw, Do it again");
+		state = 0;
 	}
 	
 	else if ( ( (com_rsp == 1) && (user_rsp == 3) ) ||  ( (com_rsp == 2) && (user_rsp == 1) ) || ( (com_rsp == 3) && (user_rsp == 2) ) ) {
 		clcd_input("You Win!!");
-		isWin = true;
+		state = 1;
 	}
 	else if ( ( (com_rsp == 3) && (user_rsp == 1) ) ||  ( (com_rsp == 1) && (user_rsp == 2) ) || ( (com_rsp == 2) && (user_rsp == 3) ) ) {
 		clcd_input("You Lose^^");
-		isWin = false;
+		state = -1;
 	}
 	else {
 		clcd_input("use key 1 or 2 or 3");
 	}
-	//return isWin;
+	return state;
 }
 
 
 int main() {
+	DOT_control(0, 2);
+	while(1){
+
+	
 	while(1){
 		clcd_input("press any key to start game");
 		if (tact_switch()){
@@ -200,33 +205,32 @@ int main() {
 			break;
 		}
 		else {
-			clcd_input("use key 4 or 5");
+			clcd_input("use right key, 4:money, 5:confirm");
 		}
       	}
 	
 	
+	
+	int rsp_state = 0;	
 	while(1){
 		clcd_input("Rock Scissors Paper!!");	
 		
-		if (tact_switch()) {
+		if (tact_switch() == 1 || tact_switch() == 2 || tact_switch() == 3) {
 			user_input = tact_switch();
 			break;
 		}
+		else {
+			clcd_input("use right key, 1:muk, 2:zzi, 3:ppa");
+		}
 	}
-	
+
 	srand(time(NULL));
 	int random = rand() % 3 + 1;	
 	
-	
-	rockScissorsPaper(random, user_input);
-	
-	DOT_control(random - 1, 5);
-	printf("%d\n", random);
-	
-	printf("%d\n", user_input);
+	rsp_state = rockScissorsPaper(random, user_input);
+	DOT_control(random - 1, 2);
 		
-		
-		
+	}
 		
 	return 0;
 }
