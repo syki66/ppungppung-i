@@ -17,8 +17,22 @@
 
 #define led "/dev/led"
 
+#include    <time.h>
+
+#define dot_dev 	"/dev/dot"
+
+
+
+
 static char tactswDev[] = "/dev/tactsw";
 static int  tactswFd = (-1);
+
+
+unsigned char row[3][8] ={
+	{ 0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00 }, // muk
+	{ 0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x00 }, // zzi
+	{ 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03 }  // bba
+};
 
 
 int led_count = 0;
@@ -121,8 +135,30 @@ void led_control(){
 	led_count++;
 }
 
-int main()
-{
+
+
+unsigned int DOT_control(int val, int time_sleep){
+
+	unsigned char dot_data[8];
+	int dot_fd = 0;
+
+	memcpy(dot_data, row[val], 8);
+
+	dot_fd = open(dot_dev, O_RDWR);
+	if(dot_fd <0){
+		printf("Can't Open Device\n");
+	}
+
+	write(dot_fd, &dot_data, sizeof(dot_data));
+	
+	sleep(time_sleep);
+	return 0;
+}
+
+
+
+
+int main() {
 	while(1){
 		clcd_input("press any key to start game");
 		if (tact_switch()){
@@ -131,7 +167,7 @@ int main()
 	}
 	
 	while(1){
-		clcd_input("Bet amount : ");
+		clcd_input("Set bet amount");
 		while(tact_switch() == 4){
 			led_control();
 			printf("bet amount : %d\n",led_count);
@@ -139,6 +175,14 @@ int main()
 				break;
 			}
         	}
+        	break;
+	}
+	
+	while(1){
+		clcd_input("Rock Scissors Paper!!");
+
+		int random = rand() % 3;
+		DOT_control(random, 1);
 	}
 		
 	return 0;
