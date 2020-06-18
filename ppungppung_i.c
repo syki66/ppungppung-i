@@ -17,11 +17,15 @@
 #define clcd "/dev/clcd"
 #define led "/dev/led"
 #define dot "/dev/dot"
+#define fnd_dev	"/dev/fnd"
 
 static char tactswDev[] = "/dev/tactsw";
 static int  tactswFd = (-1);
 
 int led_count = 0; // 베팅액을 확인하기 위한 전역변수
+int user_money[4] = { 3, 0, 0, 0 };
+
+bool isEnd = false;
 
 // 아마도 택트 스위치 클릭값 얻기 위한것
 unsigned char tactsw_get(int tmo) 
@@ -163,8 +167,72 @@ void intro(){
 	DOT_control(2, 1);
 }
 
+
+
+
+
+void calculate_money(rsp_state){
+	if (rsp_state == 1) {
+		user_money[1] += led_count;
+	}
+	else if (rsp_state == -1) {
+		user_money[1] -= led_count;
+	}
+	else {
+		printf("unknown Error");
+	}
+}
+
+void adjust_balance(int money[]){
+	if (money[0] <= 0 && money[1] <= 0) {
+		isEnd = true;
+	}
+	else if (money[0] >= 10) {
+		isEnd = true;
+	}
+	else if (money[1] >= 10) { 
+		money[0]++;
+		money[1] %= 10;
+	}
+	else if (money[1] < 0) {
+		money[0]--;
+		money[1] = (10 + money[1]);
+	}
+	else{ 
+		//nothing
+	}
+}
+
+// fnd control
+int FND_control(int money[], int time_sleep){
+	adjust_balance(money);
+	unsigned char FND_DATA_TBL[]={
+        	0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90,0x88,
+        	0x83,0xC6,0xA1,0x86,0x8E,0xC0,0xF9,0xA4,0xB0,0x99,0x89
+	};
+
+	int fnd_fd = 0;
+
+        unsigned char fnd_num[4];
+
+        fnd_num[0] = FND_DATA_TBL[money[0]];
+        fnd_num[1] = FND_DATA_TBL[money[1]];
+        fnd_num[2] = FND_DATA_TBL[money[2]];
+        fnd_num[3] = FND_DATA_TBL[money[3]];
+
+        fnd_fd = open(fnd_dev, O_RDWR);
+
+        if(fnd_fd <0){
+		printf("Can't Open Device\n");
+	}
+        write(fnd_fd, &fnd_num, sizeof(fnd_num));
+        sleep(time_sleep);
+        close(fnd_fd);
+}
+
+
 int main() {
-	while(true){
+	while(!isEnd){
 
 		// 시작부
 		while(true){
@@ -176,8 +244,11 @@ int main() {
 			}
 		}
 		
+		clcd_input("  Your Balance");
+		FND_control(user_money,3); // sleep
+		
 		// 베팅금액 설정하는 부분
-		clcd_input("Betting Money");
+		clcd_input("    Betting");
 		while(true){
 			if (tact_switch_listener() == 4){ 	// 4번 스위치를 클릭하였을 경우 led 증가시키기
 				led_control();
@@ -186,7 +257,7 @@ int main() {
 				break;
 			}
 			else {  // 만약 플레이어가 4번 ,5번을 제외한 나머지 키를 눌렀을경우 아래 메세지 출력
-				clcd_input("use right key, 4:money, 5:confirm");
+				clcd_input("use right key, 4:money,5:confirm");
 			}
 	    }
 		
@@ -194,7 +265,7 @@ int main() {
 		int user_input = 0; // 사용자가 누른 택트 스위치 확인하는 변수 초기화
 		int rsp_state = 0;	// 비겼을때 재경기를 하기 위해 while문 조건에 삽입.
 		while(rsp_state == 0){ // 비기지 않을때까지 실행
-			clcd_input("Rock Scissors Paper!!");
+			clcd_input(" Rock  Scissors     Paper!!");
 			
 			srand(time(NULL)); // 시드값에 시간함수를 넣어주어 매크로 랜덤이 아닌 완전한 램덤시드생성
 			int random = rand() % 3 + 1;	// 0,1,2 랜덤하게 생성후 변수에 대입
@@ -205,9 +276,12 @@ int main() {
 				DOT_control(random - 1, 3); // 컴퓨터는 무엇을 내었는지 3초동안 보여줌
 			}
 			else {
-				clcd_input("use right key, 1:muk, 2:zzi, 3:ppa"); // 사용자가 1,2,3 번 택트 스위치를 누르지 않으면 조작법을 lcd에 출력해줌
+				clcd_input("use right key,1:muk,2:zzi,3:ppa"); // 사용자가 1,2,3 번 택트 스위치를 누르지 않으면 조작법을 lcd에 출력해줌
 			}
 		}
+	calculate_money(rsp_state);
+	FND_control(user_money,3);
+	
 	led_count = 0; // 현 게임의 베팅금액이 다음게임에 이어지지 않도록 베팅액 초기화
 	}
 		
