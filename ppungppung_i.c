@@ -71,6 +71,8 @@ int tact_switch_listener(){
 				case 3:  selected_tact = 3 ; break;
 				case 4:  selected_tact = 4 ; break;
 				case 5:  selected_tact = 5 ; break;
+				case 7:  selected_tact = 7 ; break;
+				case 8:  selected_tact = 8 ; break;
 				default: printf("press other key\n", c); break;
 		}
 		return selected_tact; // 어떤 스위치가 눌렸는지 int 형으로 반환함
@@ -126,7 +128,7 @@ void DOT_control(int col, int time_sleep){
 	dot_d = open(dot , O_RDWR);
 	if(dot_d<0)  	// 예외처리
 	{
-		printf("Error\n");
+		printf("dot Error\n");
 	}
 
 	write(dot_d , &c[col], sizeof(c)); // 출력
@@ -140,16 +142,16 @@ int rockScissorsPaper(int com_rsp, int user_rsp) {
 	int state = 6; // 승(1),패(0),무(-1) 의 여부를 알려주는 변수. 아래 값들과 겹치지 않는 값으로 초기화
 	
 	if (com_rsp == user_rsp) {
-		clcd_input("Draw, Do it again"); // 비겼으니 다시 가위바위보 하라는 메세지 출력
+		clcd_input("     Draw..       Do it again!  "); // 비겼으니 다시 가위바위보 하라는 메세지 출력
 		state = 0;
 	}
 	
 	else if ( ( (com_rsp == 1) && (user_rsp == 3) ) ||  ( (com_rsp == 2) && (user_rsp == 1) ) || ( (com_rsp == 3) && (user_rsp == 2) ) ) {
-		clcd_input("You Win!!"); // 승리 문구 출력
+		clcd_input("   You Win!!!   "); // 승리 문구 출력
 		state = 1;
 	}
 	else if ( ( (com_rsp == 3) && (user_rsp == 1) ) ||  ( (com_rsp == 1) && (user_rsp == 2) ) || ( (com_rsp == 2) && (user_rsp == 3) ) ) {
-		clcd_input("You Lose^^"); // 패배 문구 출력
+		clcd_input("   You Lose^^   "); // 패배 문구 출력
 		state = -1;
 	}
 	else {
@@ -183,14 +185,9 @@ void calculate_money(rsp_state){
 	}
 }
 
+
 void adjust_balance(int money[]){
-	if (money[0] <= 0 && money[1] <= 0) {
-		isEnd = true;
-	}
-	else if (money[0] >= 10) {
-		isEnd = true;
-	}
-	else if (money[1] >= 10) { 
+	if (money[1] >= 10) { 
 		money[0]++;
 		money[1] %= 10;
 	}
@@ -203,9 +200,13 @@ void adjust_balance(int money[]){
 	}
 }
 
+
 // fnd control
 int FND_control(int money[], int time_sleep){
-	adjust_balance(money);
+	
+	clcd_input("  Your Balance");
+
+	
 	unsigned char FND_DATA_TBL[]={
         	0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90,0x88,
         	0x83,0xC6,0xA1,0x86,0x8E,0xC0,0xF9,0xA4,0xB0,0x99,0x89
@@ -223,7 +224,7 @@ int FND_control(int money[], int time_sleep){
         fnd_fd = open(fnd_dev, O_RDWR);
 
         if(fnd_fd <0){
-		printf("Can't Open Device\n");
+		printf("fnd error\n");
 	}
         write(fnd_fd, &fnd_num, sizeof(fnd_num));
         sleep(time_sleep);
@@ -232,23 +233,24 @@ int FND_control(int money[], int time_sleep){
 
 
 int main() {
-	while(!isEnd){
-
-		// 시작부
-		while(true){
-			clcd_input("press any key to start game"); // LCD에 메세지 출력
-			intro(); // 인트로 함수 실행
-			
-			if (tact_switch_listener()){	// 아무키나 누르게되면 while문 탈출
-				break;
-			}
+	// 시작부
+	while(true){
+		clcd_input("press any key to start game"); // LCD에 메세지 출력
+		intro(); // 인트로 함수 실행
+		
+		if (tact_switch_listener()){	// 아무키나 누르게되면 while문 탈출
+			break;
 		}
-		
-		clcd_input("  Your Balance");
-		FND_control(user_money,3); // sleep
-		
+	}
+	
+	clcd_input("  Your Balance");
+	FND_control(user_money,3); // sleep
+	
+	// 반복부분
+	while(!isEnd){	
+
 		// 베팅금액 설정하는 부분
-		clcd_input("    Betting");
+		clcd_input("    Betting     4.bet  5.confirm");
 		while(true){
 			if (tact_switch_listener() == 4){ 	// 4번 스위치를 클릭하였을 경우 led 증가시키기
 				led_control();
@@ -257,9 +259,9 @@ int main() {
 				break;
 			}
 			else {  // 만약 플레이어가 4번 ,5번을 제외한 나머지 키를 눌렀을경우 아래 메세지 출력
-				clcd_input("use right key, 4:money,5:confirm");
+				clcd_input("use right key,  4:bet, 5:confirm");
 			}
-	    }
+	    	}
 		
 		// 가위바위보 하는 부분
 		int user_input = 0; // 사용자가 누른 택트 스위치 확인하는 변수 초기화
@@ -279,10 +281,39 @@ int main() {
 				clcd_input("use right key,1:muk,2:zzi,3:ppa"); // 사용자가 1,2,3 번 택트 스위치를 누르지 않으면 조작법을 lcd에 출력해줌
 			}
 		}
-	calculate_money(rsp_state);
-	FND_control(user_money,3);
+		
+		
+		calculate_money(rsp_state);
+		adjust_balance(user_money);
+		printf("%d, %d", user_money[0], user_money[1]);
+		if ( (user_money[0] < 0) || (user_money[0] == 0 && user_money[1] == 0) ) {
+			isEnd = true;
+			clcd_input("You run out of money, Cant play.");
+			break;
+		}
+		else if (user_money[0] >= 10) {
+			isEnd = true;
+			clcd_input("It's END, Cash in your chips");		
+			break;
+		}
+		else { FND_control(user_money,3); }
 	
-	led_count = 0; // 현 게임의 베팅금액이 다음게임에 이어지지 않도록 베팅액 초기화
+	
+	
+	
+		while(!isEnd){
+			clcd_input("   Continue??     7.Yes   8.No  ");
+			if (tact_switch_listener() == 7){	// 5번 스위치 클릭시 while문 빠져나옴
+				break;
+			}
+			else if (tact_switch_listener() == 8){
+				clcd_input("Cash in your chips,  Good Bye!!");
+				isEnd = true;
+				break;
+			}
+			else { /*pass*/ }
+		}
+		led_count = 0; // 현 게임의 베팅금액이 다음게임에 이어지지 않도록 베팅액 초기화
 	}
 		
 	return 0;
