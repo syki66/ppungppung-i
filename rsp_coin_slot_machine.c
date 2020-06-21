@@ -23,9 +23,14 @@ static char tactswDev[] = "/dev/tactsw";
 static int  tactswFd = (-1);
 
 int led_count = 0; // 베팅액을 확인하기 위한 전역변수
-int user_money[4] = { 3, 0, 0, 0 };
+int user_money[4] = { 3, 0, 0, 0 }; // 초기 지급 금액, 3000원
+bool isEnd = false; // 경기가 끝났는지 알려주는 전역변수
 
-bool isEnd = false;
+unsigned char rsp[3][8] ={	// 가위바위보 배열
+	{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // 가위
+	{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // 바위
+	{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // 보
+};
 
 // 아마도 택트 스위치 클릭값 얻기 위한것
 unsigned char tactsw_get(int tmo) 
@@ -61,19 +66,18 @@ int tact_switch_listener(){
 		exit(-1);
 	}
 
-	// 택트스위치는 1,2,3,4,5번 스위치만 사용함.
-	// 1,2,3 은 각각 묵, 찌, 빠 이며, 4번은 베팅금액 증가시키는버튼, 5번은 베팅금액을 확정시키는 버튼.
+	// 택트스위치는 1,2,3,4,5,7,8번 스위치만 사용함
 	while(1){
 		c = tactsw_get(10);
 		switch (c) {
-				case 1:  selected_tact = 1 ; break;
-				case 2:  selected_tact = 2 ; break;
-				case 3:  selected_tact = 3 ; break;
-				case 4:  selected_tact = 4 ; break;
-				case 5:  selected_tact = 5 ; break;
-				case 7:  selected_tact = 7 ; break;
-				case 8:  selected_tact = 8 ; break;
-				default: printf("press other key\n", c); break;
+				case 1:  selected_tact = 1 ; break; // 묵
+				case 2:  selected_tact = 2 ; break; // 찌
+				case 3:  selected_tact = 3 ; break; // 빠
+				case 4:  selected_tact = 4 ; break; // 배팅금액 증가
+				case 5:  selected_tact = 5 ; break; // 배팅금액 확정
+				case 7:  selected_tact = 7 ; break; // 게임 계속하기
+				case 8:  selected_tact = 8 ; break; // 게임 나가기
+				default: printf("press other key\n", c); break; // 기본값 메세지
 		}
 		return selected_tact; // 어떤 스위치가 눌렸는지 int 형으로 반환함
 		}
@@ -99,53 +103,43 @@ void led_control(){
 	char led_array[] = { 0xFE,0xFC,0xF8,0xF0,0xE0,0xC0,0x80,0x00 }; // 미리 16진수값들 지정해놓음
 	
 	dev = open(led,O_RDWR);
-
 	if (dev <0) {		// 예외처리
 		printf("led error\n");
 		exit(0);
 	}
 
 	led_count %= 8; // led 카운트가 8회 이상 넘어가게 되면 다시 0부터 카운트
-	data = led_array[led_count]; // 이진수로 제어됨
-
+	
+	data = led_array[led_count];
 	write(dev , &data , sizeof(unsigned char)); // 출력
-	usleep(500000); // led 0.5초동안 꺼지는거 방지
+	usleep(500000); // led가 0.5초동안 점등되도록 하기
 	
 	close(dev);
 	
-	led_count++; // 함수가 실행될때마다 카운트가 올라감
+	led_count++; // 함수가 실행 횟수 카운트
 }
 
-// "행" 값과 "sleep"값을 인자로 받아서 도트 매트릭스 제어하는 함수
+// 가위바위보 배열의 "행" 값과 "sleep"값을 인자로 받아서 도트 매트릭스를 제어하는 함수
 void DOT_control(int col, int time_sleep){
 	int dot_d;
-	unsigned char c[3][8] ={
-		{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // 가위
-		{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // 바위
-		{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // 보
-	};
 
 	dot_d = open(dot , O_RDWR);
-	if(dot_d<0)  	// 예외처리
-	{
-		printf("dot Error\n");
-	}
+	if (dot_d < 0) { printf("dot Error\n"); } // 예외처리
 
-	write(dot_d , &c[col], sizeof(c)); // 출력
-	
-	sleep(time_sleep); // 대기시간이 1초보다 작으면 에러남
-	close(dot_d); // 필수.
+	write(dot_d , &rsp[col], sizeof(rsp)); // 출력
+	sleep(time_sleep); // 몇초동안 점등할지
+
+	close(dot_d);
 }
 
-// 가위바위보 함수
+// 가위바위보 함수 (컴퓨터와 유저의 가위가위보 값 비교해서 경기 결과 리턴)
 int rockScissorsPaper(int com_rsp, int user_rsp) {
-	int state = 6; // 승(1),패(0),무(-1) 의 여부를 알려주는 변수. 아래 값들과 겹치지 않는 값으로 초기화
+	int state = 6; // 승(1),무(0),패(-1) 의 여부를 알려주는 변수. 아래 값들과 겹치지 않는 값으로 초기화
 	
 	if (com_rsp == user_rsp) {
-		clcd_input("     Draw..       Do it again!  "); // 비겼으니 다시 가위바위보 하라는 메세지 출력
+		clcd_input("     Draw..       Do it again!  "); // 비겼을때의 메세지 출력
 		state = 0;
 	}
-	
 	else if ( ( (com_rsp == 1) && (user_rsp == 3) ) ||  ( (com_rsp == 2) && (user_rsp == 1) ) || ( (com_rsp == 3) && (user_rsp == 2) ) ) {
 		clcd_input("   You Win!!!   "); // 승리 문구 출력
 		state = 1;
@@ -155,96 +149,73 @@ int rockScissorsPaper(int com_rsp, int user_rsp) {
 		state = -1;
 	}
 	else {
-		clcd_input("use key 1 or 2 or 3");
+		clcd_input("use key 1 or 2 or 3"); // 키를 잘못 입력했을 경우 메세지 출력
 	}
 	return state; // 경기 결과 리턴
 }
 
-// 게임 처음 실행할때 인트로 화면 설정
+// 게임 인트로 띄어주는 함수
 void intro(){
-
 	int dot_d;
-	unsigned char c[3][8] ={
-		{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // 가위
-		{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // 바위
-		{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // 보
-	};
-
 	int dev;
 	unsigned char data;
+
 	
-	 
-	int i, j = 0;
-	while(true) {
-		int led_random = rand() % 256; // 0 to 7
-		
+	// 묵찌빠 배열의 길이만큼 실행
+	int rsp_length = sizeof(rsp) / sizeof(rsp[0]); // 배열의 길이
+	int intro_led_count, intro_dot_count = 0;
+	while( intro_dot_count < rsp_length ) {
 		dot_d = open(dot , O_RDWR);
-			if(dot_d<0)  	// 예외처리
-		{
-			printf("dot Error\n");
-		}
-		write(dot_d , &c[j % 3], sizeof(c)); // 출력
-		usleep(50000);
-		close(dot_d); // 필수.
-		
-		
-		
 		dev = open(led,O_RDWR);
-		if (dev <0) {		// 예외처리
-			printf("led error\n");
-			exit(0);
-		}
-		data = led_random;
-		write(dev , &data , sizeof(unsigned char)); // 출력
-		usleep(50000);		
+
+		if(dot_d<0 || dev <0) { printf("Dot or Led error\n"); exit(0); } // 예외처리
+
+		// dot 제어
+		write(dot_d , &rsp[intro_dot_count], sizeof(rsp)); // 도트 매트릭스 출력
+		usleep(50000); // 도트매트릭스 0.05초 점등
+		close(dot_d);
+		
+		// led 제어
+		data = rand() % 256; // 0 ~ 255 중 랜덤값 부여 (led는 16진수로 인식함)
+		write(dev , &data , sizeof(unsigned char)); // LED 출력
+		usleep(50000); // LED 0.05초 점등
 		close(dev);
 		
-		
-		i++; if (i % 20 == 0) {j++;}
-		if (j >= 3) {break;}
-	
+		// LED가 20번 바뀔때마다 도트 1번 바뀜	
+		intro_led_count++;
+		if (intro_led_count % 20 == 0) {
+			intro_dot_count++;
+		}
 	}
-
-
 }
 
-
-
-
-
-void calculate_money(rsp_state){
-	if (rsp_state == 1) {
+// 승패 여부에 따라서 잔고의 100의 자리수를 조절해주는 함수
+void calculate_user_money(rsp_state){
+	if (rsp_state == 1) {	// 승리했을경우 배팅금액 더해주기
 		user_money[1] += led_count;
 	}
-	else if (rsp_state == -1) {
+	else if (rsp_state == -1) {	// 패배했을경우 배팅금액 빼주기
 		user_money[1] -= led_count;
 	}
-	else {
-		printf("unknown Error");
-	}
+	else { printf("unknown Error");	}
 }
 
-
-void adjust_balance(int money[]){
-	if (money[1] >= 10) { 
-		money[0]++;
-		money[1] %= 10;
+// fnd에 한 자리수의 양수로 출력할 수 있도록, user_money 배열 조정
+void adjust_user_money(int money[]){
+	if (money[1] >= 10) {  // 100의 자리수가 10보다 커질때
+		money[0]++; // 1000의 자리수 올려주기
+		money[1] %= 10; // 나머지값을 100의 자릿수에 대입
 	}
-	else if (money[1] < 0) {
-		money[0]--;
-		money[1] = (10 + money[1]);
+	else if (money[1] < 0) { // 100의 자리수가 0보다 작아질때
+		money[0]--; // 1000의 자릿수 내려주기
+		money[1] = (10 + money[1]); // 100의 자릿수 조정
 	}
-	else{ 
-		//nothing
-	}
+	else{ /*pass*/ }
 }
-
 
 // fnd control
 int FND_control(int money[], int time_sleep){
-	
 	clcd_input("  Your Balance");
-
 	
 	unsigned char FND_DATA_TBL[]={
         	0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90,0x88,
@@ -252,22 +223,21 @@ int FND_control(int money[], int time_sleep){
 	};
 
 	int fnd_fd = 0;
+    unsigned char fnd_num[4];
 
-        unsigned char fnd_num[4];
+	// money 배열의 원소들을 순서에 맞게 넣어주기
+    fnd_num[0] = FND_DATA_TBL[money[0]];
+    fnd_num[1] = FND_DATA_TBL[money[1]];
+    fnd_num[2] = FND_DATA_TBL[money[2]];
+    fnd_num[3] = FND_DATA_TBL[money[3]];
 
-        fnd_num[0] = FND_DATA_TBL[money[0]];
-        fnd_num[1] = FND_DATA_TBL[money[1]];
-        fnd_num[2] = FND_DATA_TBL[money[2]];
-        fnd_num[3] = FND_DATA_TBL[money[3]];
+    fnd_fd = open(fnd_dev, O_RDWR);
+	if(fnd_fd <0){ printf("fnd error\n"); } // 예외처리
 
-        fnd_fd = open(fnd_dev, O_RDWR);
+    write(fnd_fd, &fnd_num, sizeof(fnd_num)); // 출력
+    sleep(time_sleep); // 점등시간 조절
 
-        if(fnd_fd <0){
-		printf("fnd error\n");
-	}
-        write(fnd_fd, &fnd_num, sizeof(fnd_num));
-        sleep(time_sleep);
-        close(fnd_fd);
+    close(fnd_fd);
 }
 
 
@@ -285,10 +255,9 @@ int main() {
 	clcd_input("  Your Balance");
 	FND_control(user_money,3); // sleep
 	
-	// 반복부분
+	// 반복부
 	while(!isEnd){	
-
-		// 베팅금액 설정하는 부분
+		// 베팅금액 설정
 		clcd_input("    Betting     4.bet  5.confirm");
 		while(true){
 			if (tact_switch_listener() == 4){ 	// 4번 스위치를 클릭하였을 경우 led 증가시키기
@@ -297,7 +266,7 @@ int main() {
 			else if (tact_switch_listener() == 5){	// 5번 스위치 클릭시 while문 빠져나옴
 				break;
 			}
-			else {  // 만약 플레이어가 4번 ,5번을 제외한 나머지 키를 눌렀을경우 아래 메세지 출력
+			else {  // 만약 사용자가 잘못된 키를 입력했을 경우
 				clcd_input("use right key,  4:bet, 5:confirm");
 			}
 	    	}
@@ -309,43 +278,41 @@ int main() {
 			clcd_input(" Rock  Scissors     Paper!!");
 			
 			srand(time(NULL)); // 시드값에 시간함수를 넣어주어 매크로 랜덤이 아닌 완전한 램덤시드생성
-			int random = rand() % 3 + 1;	// 0,1,2 랜덤하게 생성후 변수에 대입
+			int random = rand() % 3 + 1;	// 0 ~ 2 랜덤값을 변수에 대입
 			
-			if (tact_switch_listener() == 1 || tact_switch_listener() == 2 || tact_switch_listener() == 3) { //1,2,3 번중 하나의 택트스위치를 눌렀을때 분기문으로 들어감
+			if (tact_switch_listener() == 1 || tact_switch_listener() == 2 || tact_switch_listener() == 3) { // 1,2,3 번중 하나의 택트스위치를 눌렀을때 분기문으로 들어감
 				user_input = tact_switch_listener(); // 사용자가 누른 값을 변수에 대입
 				rsp_state = rockScissorsPaper(random, user_input); // 사용자의 값과 위에서 랜덤하게 생성된 수를 가위바위보 시킨 후, 결과를 rsp_state에 저장
 				DOT_control(random - 1, 3); // 컴퓨터는 무엇을 내었는지 3초동안 보여줌
 			}
 			else {
-				clcd_input("use right key,1:muk,2:zzi,3:ppa"); // 사용자가 1,2,3 번 택트 스위치를 누르지 않으면 조작법을 lcd에 출력해줌
+				clcd_input("use right key,1:muk,2:zzi,3:ppa"); // 사용자가 스위치를 잘못누르면 조작법을 lcd에 출력해줌
 			}
 		}
 		
-		
-		calculate_money(rsp_state);
-		adjust_balance(user_money);
-		printf("%d, %d", user_money[0], user_money[1]);
-		if ( (user_money[0] < 0) || (user_money[0] == 0 && user_money[1] == 0) ) {
+		calculate_user_money(rsp_state); // 승패 여부에 따라 돈 계산하기
+		adjust_user_money(user_money); // money 배열에서 10 이상 또는 음수값을 알맞게 조정
+
+		// 게임을 계속할수 있는 상태인지 확인
+		if ( (user_money[0] < 0) || (user_money[0] == 0 && user_money[1] == 0) ) { // 현재 잔액이 0원 이하이면 게임을 끝냄
 			isEnd = true;
 			clcd_input("You run out of money, Cant play.");
 			break;
 		}
-		else if (user_money[0] >= 10) {
+		else if (user_money[0] >= 10) { // 현재 잔액이 9900원 초과이면 게임을 끝냄
 			isEnd = true;
 			clcd_input("It's END, Cash in your chips");		
 			break;
 		}
 		else { FND_control(user_money,3); }
 	
-	
-	
-	
+		// 게임을 계속할건지 종료할건지 사용자의 입력 받기
 		while(!isEnd){
 			clcd_input("   Continue??     7.Yes   8.No  ");
-			if (tact_switch_listener() == 7){	// 5번 스위치 클릭시 while문 빠져나옴
+			if (tact_switch_listener() == 7){	// 7번 스위치 클릭시 while문 빠져나오면서 첫 부분으로 돌아감
 				break;
 			}
-			else if (tact_switch_listener() == 8){
+			else if (tact_switch_listener() == 8){ // 8번 스위치를 누르면 게임이 끝나게됨
 				clcd_input("Cash in your chips,  Good Bye!!");
 				isEnd = true;
 				break;
