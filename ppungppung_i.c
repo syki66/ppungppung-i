@@ -162,11 +162,50 @@ int rockScissorsPaper(int com_rsp, int user_rsp) {
 
 // 게임 처음 실행할때 인트로 화면 설정
 void intro(){
+
+	int dot_d;
+	unsigned char c[3][8] ={
+		{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // 가위
+		{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // 바위
+		{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // 보
+	};
+
+	int dev;
+	unsigned char data;
 	
-	//묵찌빠 글자 순서대로 출력
-	DOT_control(0, 1); // 0번 행을 1초동안 출력
-	DOT_control(1, 1);
-	DOT_control(2, 1);
+	 
+	int i, j = 0;
+	while(true) {
+		int led_random = rand() % 256; // 0 to 7
+		
+		dot_d = open(dot , O_RDWR);
+			if(dot_d<0)  	// 예외처리
+		{
+			printf("dot Error\n");
+		}
+		write(dot_d , &c[j % 3], sizeof(c)); // 출력
+		usleep(50000);
+		close(dot_d); // 필수.
+		
+		
+		
+		dev = open(led,O_RDWR);
+		if (dev <0) {		// 예외처리
+			printf("led error\n");
+			exit(0);
+		}
+		data = led_random;
+		write(dev , &data , sizeof(unsigned char)); // 출력
+		usleep(50000);		
+		close(dev);
+		
+		
+		i++; if (i % 20 == 0) {j++;}
+		if (j >= 3) {break;}
+	
+	}
+
+
 }
 
 
