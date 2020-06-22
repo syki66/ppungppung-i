@@ -8,11 +8,11 @@
 #include <string.h>
 #include <asm/ioctls.h>
 #include <stdbool.h>
-#include<string.h>
+#include <string.h>
 #include <time.h>
-#include<unistd.h>
-#include<sys/ioctl.h>
-#include<sys/stat.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #define clcd "/dev/clcd"
 #define led "/dev/led"
@@ -26,7 +26,7 @@ int led_count = 0; // 베팅액을 확인하기 위한 전역변수
 int user_money[4] = { 3, 0, 0, 0 }; // 초기 지급 금액, 3000원
 bool isEnd = false; // 경기가 끝났는지 알려주는 전역변수
 
-unsigned char rsp[3][8] ={	// 가위바위보 배열
+unsigned char rps[3][8] ={	// 가위바위보 배열
 	{ 0xff,0x81,0xff,0x00,0xff,0x18,0xff,0x01 }, // 가위
 	{ 0xfd,0x49,0x49,0x49,0xb5,0xb5,0xb5,0xb5 }, // 바위
 	{ 0xaa,0xaa,0xaa,0xfb,0xab,0xaa,0xaa,0xfa }  // 보
@@ -62,7 +62,7 @@ int tact_switch_listener(){
 	int selected_tact = 0; // false 값 넣기
 
 	if((tactswFd = open( tactswDev, O_RDONLY )) < 0){     	// 예외처리    
-		perror("open faile /dev/key");
+		perror("tact error");
 		exit(-1);
 	}
 
@@ -86,11 +86,9 @@ int tact_switch_listener(){
 // LCD에 문자열을 표시해주는 함수
 void clcd_input(char clcd_text[]){
 	int clcd_d;
-	clcd_d = open(clcd , O_RDWR);
 
-	if (clcd_d < 0) {	// 예외처리
-		printf("clcd error\n");
-	}
+	clcd_d = open(clcd , O_RDWR);
+	if (clcd_d < 0) { printf("clcd error\n"); }// 예외처리
 
 	write(clcd_d , clcd_text , strlen(clcd_text)); // 두번째부터 각각 문자열, 문자열 크기
 	close(clcd_d); 
@@ -103,10 +101,7 @@ void led_control(){
 	char led_array[] = { 0xFE,0xFC,0xF8,0xF0,0xE0,0xC0,0x80,0x00 }; // 미리 16진수값들 지정해놓음
 	
 	dev = open(led,O_RDWR);
-	if (dev <0) {		// 예외처리
-		printf("led error\n");
-		exit(0);
-	}
+	if (dev <0) { printf("led error\n"); exit(0); } // 예외처리
 
 	led_count %= 8; // led 카운트가 8회 이상 넘어가게 되면 다시 0부터 카운트
 	
@@ -116,35 +111,35 @@ void led_control(){
 	
 	close(dev);
 	
-	led_count++; // 함수가 실행 횟수 카운트
+	led_count++; // 함수 실행 횟수 카운트
 }
 
-// 가위바위보 배열의 "행" 값과 "sleep"값을 인자로 받아서 도트 매트릭스를 제어하는 함수
-void DOT_control(int col, int time_sleep){
+// 가위바위보 배열의 "행" 값과 "sleep" 값을 인자로 받아서 도트 매트릭스를 제어하는 함수
+void DOT_control(int rps_col, int time_sleep){
 	int dot_d;
 
 	dot_d = open(dot , O_RDWR);
 	if (dot_d < 0) { printf("dot Error\n"); } // 예외처리
 
-	write(dot_d , &rsp[col], sizeof(rsp)); // 출력
+	write(dot_d , &rps[rps_col], sizeof(rps)); // 출력
 	sleep(time_sleep); // 몇초동안 점등할지
 
 	close(dot_d);
 }
 
 // 가위바위보 함수 (컴퓨터와 유저의 가위가위보 값 비교해서 경기 결과 리턴)
-int rockScissorsPaper(int com_rsp, int user_rsp) {
-	int state = 6; // 승(1),무(0),패(-1) 의 여부를 알려주는 변수. 아래 값들과 겹치지 않는 값으로 초기화
+int rockPaperScissors(int com_rps, int user_rps) {
+	int state = 6; // 승(1), 무(0), 패(-1) 의 여부를 알려주는 변수. 아래 값들과 겹치지 않는 값으로 초기화
 	
-	if (com_rsp == user_rsp) {
+	if (com_rps == user_rps) {
 		clcd_input("     Draw..       Do it again!  "); // 비겼을때의 메세지 출력
 		state = 0;
 	}
-	else if ( ( (com_rsp == 1) && (user_rsp == 3) ) ||  ( (com_rsp == 2) && (user_rsp == 1) ) || ( (com_rsp == 3) && (user_rsp == 2) ) ) {
+	else if ( ( (com_rps == 1) && (user_rps == 3) ) ||  ( (com_rps == 2) && (user_rps == 1) ) || ( (com_rps == 3) && (user_rps == 2) ) ) {
 		clcd_input("   You Win!!!   "); // 승리 문구 출력
 		state = 1;
 	}
-	else if ( ( (com_rsp == 3) && (user_rsp == 1) ) ||  ( (com_rsp == 1) && (user_rsp == 2) ) || ( (com_rsp == 2) && (user_rsp == 3) ) ) {
+	else if ( ( (com_rps == 3) && (user_rps == 1) ) ||  ( (com_rps == 1) && (user_rps == 2) ) || ( (com_rps == 2) && (user_rps == 3) ) ) {
 		clcd_input("   You Lose^^   "); // 패배 문구 출력
 		state = -1;
 	}
@@ -159,19 +154,17 @@ void intro(){
 	int dot_d;
 	int dev;
 	unsigned char data;
-
 	
-	// 묵찌빠 배열의 길이만큼 실행
-	int rsp_length = sizeof(rsp) / sizeof(rsp[0]); // 배열의 길이
+	int rps_length = sizeof(rps) / sizeof(rps[0]); // 배열의 길이
 	int intro_led_count, intro_dot_count = 0;
-	while( intro_dot_count < rsp_length ) {
+	while( intro_dot_count < rps_length ) { // 묵찌빠 배열의 길이만큼 실행
 		dot_d = open(dot , O_RDWR);
 		dev = open(led,O_RDWR);
 
-		if(dot_d<0 || dev <0) { printf("Dot or Led error\n"); exit(0); } // 예외처리
+		if(dot_d < 0 || dev < 0) { printf("Dot or Led error\n"); exit(0); } // 예외처리
 
 		// dot 제어
-		write(dot_d , &rsp[intro_dot_count], sizeof(rsp)); // 도트 매트릭스 출력
+		write(dot_d , &rps[intro_dot_count], sizeof(rps)); // 도트 매트릭스 출력
 		usleep(50000); // 도트매트릭스 0.05초 점등
 		close(dot_d);
 		
@@ -190,17 +183,17 @@ void intro(){
 }
 
 // 승패 여부에 따라서 잔고의 100의 자리수를 조절해주는 함수
-void calculate_user_money(rsp_state){
-	if (rsp_state == 1) {	// 승리했을경우 배팅금액 더해주기
+void calculate_user_money(rps_state){
+	if (rps_state == 1) {	// 승리했을경우 배팅금액 더해주기
 		user_money[1] += led_count;
 	}
-	else if (rsp_state == -1) {	// 패배했을경우 배팅금액 빼주기
+	else if (rps_state == -1) {	// 패배했을경우 배팅금액 빼주기
 		user_money[1] -= led_count;
 	}
 	else { printf("unknown Error");	}
 }
 
-// fnd에 한 자리수의 양수로 출력할 수 있도록, user_money 배열 조정
+// fnd에 한 자리수의 양수로 출력할 수 있도록, user_money 배열 조정해주는 함수
 void adjust_user_money(int money[]){
 	if (money[1] >= 10) {  // 100의 자리수가 10보다 커질때
 		money[0]++; // 1000의 자리수 올려주기
@@ -213,7 +206,7 @@ void adjust_user_money(int money[]){
 	else{ /*pass*/ }
 }
 
-// fnd control
+// 세그먼트 제어 함수
 int FND_control(int money[], int time_sleep){
 	clcd_input("  Your Balance");
 	
@@ -252,8 +245,7 @@ int main() {
 		}
 	}
 	
-	clcd_input("  Your Balance");
-	FND_control(user_money,3); // sleep
+	FND_control(user_money,3); // 플레이어의 잔고를 3초동안 fnd에 출력해주기
 	
 	// 반복부
 	while(!isEnd){	
@@ -269,12 +261,12 @@ int main() {
 			else {  // 만약 사용자가 잘못된 키를 입력했을 경우
 				clcd_input("use right key,  4:bet, 5:confirm");
 			}
-	    	}
+	    }
 		
 		// 가위바위보 하는 부분
 		int user_input = 0; // 사용자가 누른 택트 스위치 확인하는 변수 초기화
-		int rsp_state = 0;	// 비겼을때 재경기를 하기 위해 while문 조건에 삽입.
-		while(rsp_state == 0){ // 비기지 않을때까지 실행
+		int rps_state = 0;	// 비겼을때 재경기를 하기 위해 while문 조건에 삽입.
+		while(rps_state == 0){ // 비기지 않을때까지 실행
 			clcd_input(" Rock  Scissors     Paper!!");
 			
 			srand(time(NULL)); // 시드값에 시간함수를 넣어주어 매크로 랜덤이 아닌 완전한 램덤시드생성
@@ -282,7 +274,7 @@ int main() {
 			
 			if (tact_switch_listener() == 1 || tact_switch_listener() == 2 || tact_switch_listener() == 3) { // 1,2,3 번중 하나의 택트스위치를 눌렀을때 분기문으로 들어감
 				user_input = tact_switch_listener(); // 사용자가 누른 값을 변수에 대입
-				rsp_state = rockScissorsPaper(random, user_input); // 사용자의 값과 위에서 랜덤하게 생성된 수를 가위바위보 시킨 후, 결과를 rsp_state에 저장
+				rps_state = rockPaperScissors(random, user_input); // 사용자의 값과 위에서 랜덤하게 생성된 수를 가위바위보 시킨 후, 결과를 rps_state에 저장
 				DOT_control(random - 1, 3); // 컴퓨터는 무엇을 내었는지 3초동안 보여줌
 			}
 			else {
@@ -290,7 +282,7 @@ int main() {
 			}
 		}
 		
-		calculate_user_money(rsp_state); // 승패 여부에 따라 돈 계산하기
+		calculate_user_money(rps_state); // 승패 여부에 따라 돈 계산하기
 		adjust_user_money(user_money); // money 배열에서 10 이상 또는 음수값을 알맞게 조정
 
 		// 게임을 계속할수 있는 상태인지 확인
@@ -321,6 +313,6 @@ int main() {
 		}
 		led_count = 0; // 현 게임의 베팅금액이 다음게임에 이어지지 않도록 베팅액 초기화
 	}
-		
+	
 	return 0;
 }
