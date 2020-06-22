@@ -208,8 +208,6 @@ void adjust_user_money(int money[]){
 
 // 세그먼트 제어 함수
 int FND_control(int money[], int time_sleep){
-	clcd_input("  Your Balance");
-	
 	unsigned char FND_DATA_TBL[]={
         	0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90,0x88,
         	0x83,0xC6,0xA1,0x86,0x8E,0xC0,0xF9,0xA4,0xB0,0x99,0x89
@@ -245,6 +243,7 @@ int main() {
 		}
 	}
 	
+	clcd_input("  Your Balance");
 	FND_control(user_money,3); // 플레이어의 잔고를 3초동안 fnd에 출력해주기
 	
 	// 반복부
@@ -296,7 +295,10 @@ int main() {
 			clcd_input("It's END, Cash in your chips");		
 			break;
 		}
-		else { FND_control(user_money,3); }
+		else { 
+			clcd_input("  Your Balance");
+			FND_control(user_money,3);
+		}
 	
 		// 게임을 계속할건지 종료할건지 사용자의 입력 받기
 		while(!isEnd){
@@ -306,6 +308,7 @@ int main() {
 			}
 			else if (tact_switch_listener() == 8){ // 8번 스위치를 누르면 게임이 끝나게됨
 				clcd_input("Cash in your chips,  Good Bye!!");
+				FND_control(user_money,3); // 잔액을 3초동안 보여줌
 				isEnd = true;
 				break;
 			}
