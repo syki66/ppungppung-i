@@ -235,7 +235,7 @@ int FND_control(int money[], int time_sleep){
 int main() {
 	// 시작부
 	while(true){
-		clcd_input("press any key to start game"); // LCD에 메세지 출력
+		clcd_input(" press any key   to start game  "); // LCD에 메세지 출력
 		intro(); // 인트로 함수 실행
 		
 		if (tact_switch_listener()){	// 아무키나 누르게되면 while문 탈출
